@@ -18,9 +18,13 @@ The project has been ported to p5.js and can be run in a web browser:
 
 ### Controls
 
-- **Threshold Slider**: Adjust the subdivision threshold (5-50). Lower values create more subdivisions and detail.
+- **Threshold Slider** (1-200): Controls color variation sensitivity. Lower values subdivide more aggressively, creating finer detail. Higher values allow larger uniform regions.
+- **Min Size Slider** (1-50): Sets the minimum allowed leaf node size in pixels. Prevents subdivision below this size.
+- **Max Size Slider** (10-1000): Sets the maximum allowed leaf node size in pixels. Forces subdivision of regions larger than this, even if color is uniform. Useful for creating more balanced quadtrees.
 - **File Input**: Click "Choose File" to load your own image directly from your computer - no code editing needed!
 - **Show Grid Checkbox**: Toggle the black grid lines on/off to visualize the quadtree structure.
+
+**Tip**: Setting a max size creates a more uniform grid structure, while higher thresholds with small max sizes can create interesting artistic effects.
 
 ### Performance Optimizations
 

@@ -1,13 +1,23 @@
 // Constants
 const MAX_CANVAS_SIZE = 1000;
-const MIN_SUBDIVISION_SIZE = 6;
+
+// Defaults for subdivision parameters
+const DEFAULT_THRESHOLD = 25;
+const DEFAULT_MIN_SIZE = 4;
+const DEFAULT_MAX_SIZE = 500;
 
 let img;
 let squares = [];
 let lastThreshold = -1;
+let lastMinSize = -1;
+let lastMaxSize = -1;
 let fileInput;
 let thresholdSlider;
 let thresholdDisplay;
+let minSizeSlider;
+let minSizeDisplay;
+let maxSizeSlider;
+let maxSizeDisplay;
 let showGridCheckbox;
 let showGrid = true; // Show grid by default
 
@@ -40,32 +50,56 @@ function setup() {
   fileInput = createFileInput(handleFile);
   fileInput.position(10, 10);
 
-  // Create slider for threshold control
-  thresholdSlider = createSlider(5, 50, 25, 1);
+  // Create slider for threshold control (increased max to 200)
+  thresholdSlider = createSlider(1, 200, DEFAULT_THRESHOLD, 1);
   thresholdSlider.position(10, 40);
   thresholdSlider.style('width', '200px');
 
   // Add input callback to redraw when slider changes
   thresholdSlider.input(() => {
-    let threshold = thresholdSlider.value();
-    if (threshold !== lastThreshold) {
-      calculateQuadtree(threshold);
-      lastThreshold = threshold;
-      thresholdDisplay.html('Threshold: ' + threshold);
-      redraw(); // Only redraw when threshold actually changes
-    }
+    recalculateIfNeeded();
   });
 
   // Create threshold display
-  thresholdDisplay = createP('Threshold: 25');
+  thresholdDisplay = createP('Threshold: ' + DEFAULT_THRESHOLD);
   thresholdDisplay.position(220, 25);
   thresholdDisplay.style('color', 'white');
   thresholdDisplay.style('background-color', 'rgba(0,0,0,0.7)');
   thresholdDisplay.style('padding', '5px');
 
+  // Create slider for minimum leaf size
+  minSizeSlider = createSlider(1, 50, DEFAULT_MIN_SIZE, 1);
+  minSizeSlider.position(10, 70);
+  minSizeSlider.style('width', '200px');
+
+  minSizeSlider.input(() => {
+    recalculateIfNeeded();
+  });
+
+  minSizeDisplay = createP('Min Size: ' + DEFAULT_MIN_SIZE);
+  minSizeDisplay.position(220, 55);
+  minSizeDisplay.style('color', 'white');
+  minSizeDisplay.style('background-color', 'rgba(0,0,0,0.7)');
+  minSizeDisplay.style('padding', '5px');
+
+  // Create slider for maximum leaf size
+  maxSizeSlider = createSlider(10, 1000, DEFAULT_MAX_SIZE, 10);
+  maxSizeSlider.position(10, 100);
+  maxSizeSlider.style('width', '200px');
+
+  maxSizeSlider.input(() => {
+    recalculateIfNeeded();
+  });
+
+  maxSizeDisplay = createP('Max Size: ' + DEFAULT_MAX_SIZE);
+  maxSizeDisplay.position(220, 85);
+  maxSizeDisplay.style('color', 'white');
+  maxSizeDisplay.style('background-color', 'rgba(0,0,0,0.7)');
+  maxSizeDisplay.style('padding', '5px');
+
   // Create grid toggle checkbox
   showGridCheckbox = createCheckbox('Show Grid', showGrid);
-  showGridCheckbox.position(10, 70);
+  showGridCheckbox.position(10, 130);
   showGridCheckbox.style('color', 'white');
   showGridCheckbox.style('background-color', 'rgba(0,0,0,0.7)');
   showGridCheckbox.style('padding', '5px');
@@ -77,7 +111,10 @@ function setup() {
   });
 
   // Initial calculation
-  calculateQuadtree(thresholdSlider.value());
+  lastThreshold = thresholdSlider.value();
+  lastMinSize = minSizeSlider.value();
+  lastMaxSize = maxSizeSlider.value();
+  calculateQuadtree(lastThreshold, lastMinSize, lastMaxSize);
 }
 
 function draw() {
@@ -100,10 +137,28 @@ function draw() {
   }
 }
 
-function calculateQuadtree(threshold) {
+// Helper function to check if parameters changed and recalculate
+function recalculateIfNeeded() {
+  let threshold = thresholdSlider.value();
+  let minSize = minSizeSlider.value();
+  let maxSize = maxSizeSlider.value();
+
+  if (threshold !== lastThreshold || minSize !== lastMinSize || maxSize !== lastMaxSize) {
+    calculateQuadtree(threshold, minSize, maxSize);
+    lastThreshold = threshold;
+    lastMinSize = minSize;
+    lastMaxSize = maxSize;
+    thresholdDisplay.html('Threshold: ' + threshold);
+    minSizeDisplay.html('Min Size: ' + minSize);
+    maxSizeDisplay.html('Max Size: ' + maxSize);
+    redraw(); // Only redraw when parameters actually change
+  }
+}
+
+function calculateQuadtree(threshold, minSize, maxSize) {
   squares = [];
   img.loadPixels(); // Load pixels once before processing
-  adaptiveSubdivision(0, 0, width, height, threshold);
+  adaptiveSubdivision(0, 0, width, height, threshold, minSize, maxSize);
 }
 
 function handleFile(file) {
@@ -125,7 +180,7 @@ function handleFile(file) {
 
       resizeCanvas(canvasWidth, canvasHeight);
       img.resize(width, height);
-      calculateQuadtree(thresholdSlider.value());
+      calculateQuadtree(thresholdSlider.value(), minSizeSlider.value(), maxSizeSlider.value());
       redraw(); // Redraw with new image
     });
   }
@@ -142,18 +197,24 @@ class Square {
   }
 }
 
-// Adaptive subdivision function
-function adaptiveSubdivision(x, y, w, h, threshold) {
+// Adaptive subdivision function with configurable min/max leaf sizes
+function adaptiveSubdivision(x, y, w, h, threshold, minSize, maxSize) {
   let analysis = analyzeRegion(x, y, w, h);
 
-  if (analysis.variation > threshold && w > MIN_SUBDIVISION_SIZE && h > MIN_SUBDIVISION_SIZE) {
+  // Subdivide if:
+  // 1. Color variation exceeds threshold AND region is larger than minSize, OR
+  // 2. Region is larger than maxSize (force subdivision for balanced tree)
+  let shouldSubdivide = (analysis.variation > threshold && w > minSize && h > minSize) ||
+                        (w > maxSize || h > maxSize);
+
+  if (shouldSubdivide && w > minSize && h > minSize) {
     let halfW = w / 2;
     let halfH = h / 2;
 
-    adaptiveSubdivision(x, y, halfW, halfH, threshold);
-    adaptiveSubdivision(x + halfW, y, halfW, halfH, threshold);
-    adaptiveSubdivision(x, y + halfH, halfW, halfH, threshold);
-    adaptiveSubdivision(x + halfW, y + halfH, halfW, halfH, threshold);
+    adaptiveSubdivision(x, y, halfW, halfH, threshold, minSize, maxSize);
+    adaptiveSubdivision(x + halfW, y, halfW, halfH, threshold, minSize, maxSize);
+    adaptiveSubdivision(x, y + halfH, halfW, halfH, threshold, minSize, maxSize);
+    adaptiveSubdivision(x + halfW, y + halfH, halfW, halfH, threshold, minSize, maxSize);
   } else {
     squares.push(new Square(x, y, w, h, analysis.avgColor));
   }
