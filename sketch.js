@@ -1,3 +1,7 @@
+// Constants
+const MAX_CANVAS_SIZE = 1000;
+const MIN_SUBDIVISION_SIZE = 6;
+
 let img;
 let squares = [];
 let lastThreshold = -1;
@@ -12,7 +16,21 @@ function preload() {
 }
 
 function setup() {
-  createCanvas(1000, 1000);
+  // Create canvas sized to fit the image while preserving aspect ratio
+  let aspectRatio = img.width / img.height;
+
+  let canvasWidth, canvasHeight;
+  if (aspectRatio > 1) {
+    // Wider than tall
+    canvasWidth = Math.min(img.width, MAX_CANVAS_SIZE);
+    canvasHeight = canvasWidth / aspectRatio;
+  } else {
+    // Taller than wide (or square)
+    canvasHeight = Math.min(img.height, MAX_CANVAS_SIZE);
+    canvasWidth = canvasHeight * aspectRatio;
+  }
+
+  createCanvas(canvasWidth, canvasHeight);
   img.resize(width, height);
 
   // Use noLoop for performance - only redraw when needed
@@ -91,6 +109,21 @@ function calculateQuadtree(threshold) {
 function handleFile(file) {
   if (file.type === 'image') {
     img = loadImage(file.data, () => {
+      // Resize canvas to fit new image while preserving aspect ratio
+      let aspectRatio = img.width / img.height;
+
+      let canvasWidth, canvasHeight;
+      if (aspectRatio > 1) {
+        // Wider than tall
+        canvasWidth = Math.min(img.width, MAX_CANVAS_SIZE);
+        canvasHeight = canvasWidth / aspectRatio;
+      } else {
+        // Taller than wide (or square)
+        canvasHeight = Math.min(img.height, MAX_CANVAS_SIZE);
+        canvasWidth = canvasHeight * aspectRatio;
+      }
+
+      resizeCanvas(canvasWidth, canvasHeight);
       img.resize(width, height);
       calculateQuadtree(thresholdSlider.value());
       redraw(); // Redraw with new image
@@ -108,9 +141,6 @@ class Square {
     this.c = c;
   }
 }
-
-// Constants
-const MIN_SUBDIVISION_SIZE = 6;
 
 // Adaptive subdivision function
 function adaptiveSubdivision(x, y, w, h, threshold) {
