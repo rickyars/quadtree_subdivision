@@ -1,5 +1,9 @@
 let img;
-let sqs;
+let sqs = [];
+let lastThreshold = -1;
+let fileInput;
+let thresholdSlider;
+let thresholdDisplay;
 
 function preload() {
   img = loadImage('data/1.jpg');
@@ -8,19 +12,59 @@ function preload() {
 function setup() {
   createCanvas(1000, 1000);
   img.resize(width, height);
+
+  // Create file input for easy image changing
+  fileInput = createFileInput(handleFile);
+  fileInput.position(10, 10);
+
+  // Create slider for threshold control
+  thresholdSlider = createSlider(5, 50, 25, 1);
+  thresholdSlider.position(10, 40);
+  thresholdSlider.style('width', '200px');
+
+  // Create threshold display
+  thresholdDisplay = createP('Threshold: 25');
+  thresholdDisplay.position(220, 25);
+  thresholdDisplay.style('color', 'white');
+  thresholdDisplay.style('background-color', 'rgba(0,0,0,0.7)');
+  thresholdDisplay.style('padding', '5px');
+
+  // Initial calculation
+  calculateQuadtree(thresholdSlider.value());
 }
 
 function draw() {
-  sqs = [];
-  let threshold = map(mouseX, 0, width, 5, 50);
-  adaptiveSubdivision(0, 0, width, height, threshold);
+  let threshold = thresholdSlider.value();
 
+  // Only recalculate if threshold changed
+  if (threshold !== lastThreshold) {
+    calculateQuadtree(threshold);
+    lastThreshold = threshold;
+    thresholdDisplay.html('Threshold: ' + threshold);
+  }
+
+  // Just draw the cached squares
   for (let i = 0; i < sqs.length; i++) {
     let s = sqs[i];
     fill(s.c);
+    noStroke();
     rect(s.x, s.y, s.w, s.h);
   }
-  print(threshold);
+}
+
+function calculateQuadtree(threshold) {
+  sqs = [];
+  img.loadPixels(); // Load pixels once before processing
+  adaptiveSubdivision(0, 0, width, height, threshold);
+}
+
+function handleFile(file) {
+  if (file.type === 'image') {
+    img = loadImage(file.data, () => {
+      img.resize(width, height);
+      calculateQuadtree(thresholdSlider.value());
+    });
+  }
 }
 
 // Square class
@@ -57,8 +101,7 @@ function getAverageColor(x, y, w, h) {
   let rSum = 0, gSum = 0, bSum = 0;
   let count = 0;
 
-  img.loadPixels();
-
+  // Pixels already loaded in calculateQuadtree()
   for (let i = int(x); i < x + w; i++) {
     for (let j = int(y); j < y + h; j++) {
       if (i < img.width && j < img.height) {
@@ -78,7 +121,7 @@ function getAverageColor(x, y, w, h) {
 function getColorVariation(x, y, w, h, avgColor) {
   let variation = 0;
 
-  img.loadPixels();
+  // Pixels already loaded in calculateQuadtree()
   let avgR = red(avgColor);
   let avgG = green(avgColor);
   let avgB = blue(avgColor);

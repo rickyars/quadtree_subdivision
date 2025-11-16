@@ -5,8 +5,7 @@ This project recursively divides an image into sections based on color variation
 
 The project has been ported to p5.js and can be run in a web browser:
 
-1. Open `index.html` in your web browser
-2. Or use a local web server (required for loading images):
+1. Use a local web server (required for loading images):
    ```bash
    # Using Python 3
    python -m http.server 8000
@@ -14,13 +13,19 @@ The project has been ported to p5.js and can be run in a web browser:
    # Using Node.js http-server
    npx http-server
    ```
-3. Navigate to `http://localhost:8000` in your browser
+2. Navigate to `http://localhost:8000` in your browser
+3. Open `index.html`
 
-### Adjustable parameters
+### Controls
 
-By default, the program starts with the entire image as the initial section to divide. The threshold for subdivision is dynamically controlled by the x-coordinate of your cursor within the window (move your mouse left/right to adjust).
+- **Threshold Slider**: Adjust the subdivision threshold (5-50). Lower values create more subdivisions and detail.
+- **File Input**: Click "Choose File" to load your own image directly from your computer - no code editing needed!
 
-To change the image, edit `sketch.js` and modify the image path in the `preload()` function:
+The quadtree is calculated only when the threshold changes, making it much faster than the original Processing version which recalculated every frame.
+
+### Changing the Default Image
+
+To change the default image that loads on startup, edit `sketch.js` and modify the image path in the `preload()` function:
 ```javascript
 img = loadImage('data/yourImage.jpg');
 ```
